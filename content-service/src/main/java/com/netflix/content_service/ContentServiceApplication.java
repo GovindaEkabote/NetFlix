@@ -7,7 +7,9 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 public class ContentServiceApplication {
 
 	public static void main(String[] args) {
-		SpringApplication.run(ContentServiceApplication.class, args);
+
+        SpringApplication.run(ContentServiceApplication.class, args);
+        System.out.println("Content Service Started");
 	}
 
 }

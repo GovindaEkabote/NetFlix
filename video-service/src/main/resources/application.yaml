@@ -1,3 +1,15 @@
 spring:
   application:
     name: video-service
+
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 2GB
+      max-request-size: 2GB
+
+minio:
+  endpoint: http://localhost:9000
+  access-key: admin
+  secret-key: password123
+  bucket: netflix-videos
