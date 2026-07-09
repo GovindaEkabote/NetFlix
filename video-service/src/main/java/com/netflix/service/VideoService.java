@@ -13,9 +13,6 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.UUID;
 
 @Service
@@ -74,6 +71,18 @@ public class VideoService {
                             .contentType(file.getContentType())
                             .build()
             );
+
+
+
+            VideoUploadEvent videoUploadEvent = new VideoUploadEvent(
+                    movieId,
+                    objectName,
+                    bucketName,
+                    file.getOriginalFilename(),
+                    file.getSize()
+            );
+
+            kafkaTemplate.send("video-upload", movieId, videoUploadEvent);
 
             return objectName;
 

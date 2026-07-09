@@ -1,15 +1,42 @@
 spring:
   application:
+    # Name of the microservice
     name: video-service
+
+  kafka:
+    # Address of the Kafka broker
+    bootstrap-servers: localhost:9092
+
+    producer:
+      # Message key serializer (movieId)
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+
+      # Serialize VideoUploadEvent as JSON
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
 
   servlet:
     multipart:
+      # Enable multipart file uploads
       enabled: true
+
+      # Maximum size of a single uploaded file
       max-file-size: 2GB
+
+      # Maximum size of the entire multipart request
       max-request-size: 2GB
 
+# MinIO configuration
 minio:
+  # MinIO server endpoint
   endpoint: http://localhost:9000
+
+  # MinIO credentials
   access-key: admin
   secret-key: password123
+
+  # Bucket where uploaded videos are stored
   bucket: netflix-videos
+
+server:
+  # Port on which the Video Service runs
+  port: 8082
