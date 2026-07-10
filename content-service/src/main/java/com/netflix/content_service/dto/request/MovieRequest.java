@@ -16,7 +16,7 @@ public class MovieRequest {
     @NotBlank(message = "Required title")
     private String title;
     private String description;
-    @NotBlank(message = "Required genre")
+
     private Genre genre;
 
     private String director;
