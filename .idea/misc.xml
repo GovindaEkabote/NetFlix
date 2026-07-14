@@ -8,6 +8,7 @@
         <option value="$PROJECT_DIR$/content-service/pom.xml" />
         <option value="$PROJECT_DIR$/stream-service/pom.xml" />
         <option value="$PROJECT_DIR$/video-service/pom.xml" />
+        <option value="$PROJECT_DIR$/AI-Search/pom.xml" />
       </list>
     </option>
   </component>

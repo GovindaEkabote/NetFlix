@@ -10,7 +10,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("api/v1/streaming")
+@RequestMapping("/api/v1/streaming")
 @RequiredArgsConstructor
 @Slf4j
 public class StreamingController {
@@ -18,14 +18,14 @@ public class StreamingController {
     private final StreaminService streaminService;
     private final RedisTemplate<String, String> redisTemplate;
 
-    private static final String MASTER_PLAYLIST_KEY_PREFIX = "master_playlist_";
+    private static final String MASTER_PLAYLIST_KEY_PREFIX = "streaming:playlist:";
 
     /*
     * get streaming url for a movie
     * return presigned hls master playlist url
     * */
-
-    @GetMapping("{movieId}")
+    @CrossOrigin(origins = "*")
+    @GetMapping("/{movieId}")
     public ResponseEntity<StreamingResponse> getStreamingUrl(@PathVariable String movieId) {
         String masterPlaylist = redisTemplate.opsForValue().get(MASTER_PLAYLIST_KEY_PREFIX + movieId);
         if (masterPlaylist == null) {
@@ -35,7 +35,8 @@ public class StreamingController {
         return ResponseEntity.ok(response);
     }
 
-    @GetMapping("{movieId}/signed-playlist")
+    @CrossOrigin(origins = "*")
+    @GetMapping("/{movieId}/signed-playlist")
     public ResponseEntity<String> getSignedPlaylist(
             @PathVariable String movieId,
             @RequestParam  String path

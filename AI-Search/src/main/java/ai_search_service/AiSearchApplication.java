@@ -1,13 +1,13 @@
-package com.netflix;
+package ai_search_service;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
-public class    EncodingServiceApplication {
+public class AiSearchApplication {
 
 	public static void main(String[] args) {
-		SpringApplication.run(EncodingServiceApplication.class, args);
+		SpringApplication.run(AiSearchApplication.class, args);
 	}
 
 }

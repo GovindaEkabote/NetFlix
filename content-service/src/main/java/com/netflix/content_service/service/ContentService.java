@@ -90,8 +90,18 @@ public class ContentService{
 
     }
 
+    public void updateVideoStatus(String movieId, VideoStatus videoStatus){
+        Movie movie = movieRepository.findById(movieId)
+                .orElseThrow(() -> new RuntimeException("Movie not found with id: " + movieId));
+        movie.setVideoStatus(videoStatus);
+        movieRepository.save(movie);
+        log.info("Video status updated for movie with id: " + movieId);
+    }
+
     private MovieResponse mapToResponse(Movie movie) {
+
         MovieResponse response = new MovieResponse();
+
         response.setId(movie.getId());
         response.setTitle(movie.getTitle());
         response.setDescription(movie.getDescription());
@@ -102,10 +112,13 @@ public class ContentService{
         response.setRating(movie.getRating());
         response.setThumbnailUrl(movie.getThumbnailUrl());
         response.setDurationMinutes(movie.getDurationMinutes());
+
+        response.setVideoKey(movie.getVideoKey());
+        response.setHlsUrl(movie.getHlsUrl());
+
         response.setVideoStatus(movie.getVideoStatus());
 
         return response;
-
     }
 
 }

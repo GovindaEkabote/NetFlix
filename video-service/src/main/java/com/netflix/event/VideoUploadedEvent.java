@@ -17,7 +17,7 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class VideoUploadEvent {
+public class VideoUploadedEvent {
 
     private String movieId;
     private String videoKey;

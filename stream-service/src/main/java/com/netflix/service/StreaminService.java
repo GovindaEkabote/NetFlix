@@ -74,7 +74,7 @@ public class StreaminService {
             // 4. Return response
             return new StreamingResponse(
                     movieId,
-                    cachedUrl,
+                    presignedUrl,
                     "1080p, 720p, 480p, 360p",
                     presignedUrlExpire
             );

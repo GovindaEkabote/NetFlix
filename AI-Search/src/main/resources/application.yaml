@@ -1,0 +1,28 @@
+server:
+  port: 8085
+
+spring:
+  application:
+    name: ai_search_service
+
+  ai:
+
+    ollama:
+
+      base-url: http://localhost:11434
+
+      embedding:
+        model: nomic-embed-text
+
+      chat:
+        model: llama3.2
+
+    vectorstore:
+      qdrant:
+        host: localhost
+        port: 6334
+        collection-name: movie-scenes
+        initialize-schema: true
+
+  kafka:
+    bootstrap-servers: localhost:9092

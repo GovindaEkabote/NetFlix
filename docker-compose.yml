@@ -1,23 +1,9 @@
 services:
-
   redis:
     image: redis:latest
     container_name: redis-netflix
     ports:
       - "6379:6379"
-    networks:
-      - netflix-network
-
-  mysql:
-    image: mysql:8.0
-    container_name: mysql-netflix
-    environment:
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: content_db
-    ports:
-      - "3306:3306"
-    volumes:
-      - mysql-data:/var/lib/mysql
     networks:
       - netflix-network
 
@@ -64,9 +50,21 @@ services:
     networks:
       - netflix-network
 
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: qdrant
+    restart: unless-stopped
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant-storage:/qdrant/storage
+    networks:
+      - netflix-network
+
 volumes:
-  mysql-data:
   minio-data:
+  qdrant-storage:
 
 networks:
   netflix-network:

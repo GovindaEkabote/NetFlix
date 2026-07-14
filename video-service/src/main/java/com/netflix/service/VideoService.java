@@ -1,6 +1,7 @@
 package com.netflix.service;
 
-import com.netflix.event.VideoUploadEvent;
+
+import com.netflix.event.VideoUploadedEvent;
 import io.minio.BucketExistsArgs;
 import io.minio.MakeBucketArgs;
 import io.minio.MinioClient;
@@ -22,7 +23,7 @@ public class VideoService {
 
     private final MinioClient minioClient;
 
-    private final KafkaTemplate<String, VideoUploadEvent> kafkaTemplate;
+    private final KafkaTemplate<String, VideoUploadedEvent> kafkaTemplate;
 
     @Value("${minio.bucket}")
     private String bucketName;
@@ -74,7 +75,7 @@ public class VideoService {
 
 
 
-            VideoUploadEvent videoUploadEvent = new VideoUploadEvent(
+            VideoUploadedEvent videoUploadedEvent  = new VideoUploadedEvent(
                     movieId,
                     objectName,
                     bucketName,
@@ -82,7 +83,17 @@ public class VideoService {
                     file.getSize()
             );
 
-            kafkaTemplate.send("video-upload", movieId, videoUploadEvent);
+            kafkaTemplate.send("video.uploaded", movieId, videoUploadedEvent)
+                    .whenComplete((result, ex) -> {
+                        if (ex != null) {
+                            log.error("Kafka send failed", ex);
+                        } else {
+                            log.info("Kafka message sent successfully");
+                            log.info("Topic: {}", result.getRecordMetadata().topic());
+                            log.info("Partition: {}", result.getRecordMetadata().partition());
+                            log.info("Offset: {}", result.getRecordMetadata().offset());
+                        }
+                    });
 
             return objectName;
 

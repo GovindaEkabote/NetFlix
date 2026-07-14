@@ -6,8 +6,8 @@ spring:
     bootstrap-servers: localhost:9092
 
     consumer:
-      group-id: encoding-service-group
-      auto-offset-reset: earliest
+      group-id: encoding-service-group-v2
+      auto-offset-reset: latest
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
       properties:
@@ -33,10 +33,10 @@ minio:
   bucket: netflix-videos
 
 ffmpeg:
-  path: ${FFMPEG_PATH:ffmpeg}
+  path: ${FFMPEG_PATH:D:/ffmpeg-8.1.2-essentials_build/ffmpeg-8.1.2-essentials_build/bin/ffmpeg.exe}
 
 encoding:
-  base-path: ${ENCODING_BASE_PATH:/tmp/encoding}
+  base-path: ${ENCODING_BASE_PATH:D:/temp2/encoding}
 
 server:
   port: 8083

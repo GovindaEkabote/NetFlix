@@ -10,6 +10,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.InputStreamReader;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -46,6 +49,9 @@ public class EncodingService {
     );
 
     public void encodeVideo(VideoUploadedEvent videoUploadedEvent) {
+        log.info("========== ENCODING STARTED ==========");
+        log.info("Movie ID: {}", videoUploadedEvent.getMovieId());
+
         String jobPath = basePath + "/" + videoUploadedEvent.getMovieId();
 
         try {
@@ -55,8 +61,15 @@ public class EncodingService {
 
             // Download video from MinIO
             String localVideoPath = jobPath + "/raw_video.mp4";
+            log.info("Downloading from MinIO...");
+            log.info("Bucket     : {}", bucketName);
+            log.info("Object Key : {}", videoUploadedEvent.getVideoKey());
+            log.info("Local Path : {}", localVideoPath);
             downloadFromMinIO(videoUploadedEvent.getVideoKey(), localVideoPath);
-            log.info("Downloaded video from MinIO");
+            File file = new File(localVideoPath);
+
+            log.info("Downloaded Exists : {}", file.exists());
+            log.info("Downloaded Size   : {}", file.length());
 
             // Encode multiple qualities with HLS
             for (VideoQuality quality : VIDEO_QUALITIES) {
@@ -90,6 +103,12 @@ public class EncodingService {
             );
 
             kafkaTemplate.send(VIDEO_ENCODED_TOPIC, videoUploadedEvent.getMovieId(), videoEncodedEvent);
+            log.info("=================================");
+            log.info("VIDEO ENCODED EVENT SENT");
+            log.info("Topic     : {}", VIDEO_ENCODED_TOPIC);
+            log.info("Movie Id  : {}", videoUploadedEvent.getMovieId());
+            log.info("HLS URL   : {}", hlsUrl);
+            log.info("=================================");
 
         } catch (Exception e) {
             log.error("Encoding failed for movie: {}", videoUploadedEvent.getMovieId(), e);
@@ -112,47 +131,66 @@ public class EncodingService {
         log.info("Downloaded {} to {}", objectName, localPath);
     }
 
-    private void encodeToHLS(String inputPath, String outputDir, int width, int height, int bitrate) throws Exception {
+    private void encodeToHLS(String inputPath,
+                             String outputDir,
+                             int width,
+                             int height,
+                             int bitrate) throws Exception {
+
         String playlist = outputDir + "/playlist.m3u8";
         String segments = outputDir + "/segment_%03d.ts";
 
         List<String> command = Arrays.asList(
                 ffmpegPath,
                 "-i", inputPath,
-
                 "-vf", "scale=" + width + ":" + height,
-
                 "-c:v", "libx264",
                 "-profile:v", "main",
                 "-preset", "fast",
-
                 "-b:v", bitrate + "k",
-
                 "-g", "48",
                 "-keyint_min", "48",
                 "-sc_threshold", "0",
-
                 "-c:a", "aac",
                 "-b:a", "128k",
-
                 "-hls_time", "6",
                 "-hls_playlist_type", "vod",
-
                 "-hls_flags", "independent_segments",
-
                 "-hls_segment_filename", segments,
-
                 playlist
         );
 
+        log.info("======================================");
+        log.info("Starting {}p encoding", height);
+        log.info("FFmpeg Path: {}", ffmpegPath);
+        log.info("Input File : {}", inputPath);
+        log.info("Output Dir : {}", outputDir);
+        log.info("Command    : {}", String.join(" ", command));
+        log.info("======================================");
+
         ProcessBuilder builder = new ProcessBuilder(command);
-        builder.inheritIO();
+        builder.redirectErrorStream(true);
+
         Process process = builder.start();
+
+        try (BufferedReader reader =
+                     new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+
+            String line;
+            while ((line = reader.readLine()) != null) {
+                log.info("[FFMPEG] {}", line);
+            }
+        }
+
         int exitCode = process.waitFor();
+
+        log.info("FFmpeg Exit Code = {}", exitCode);
 
         if (exitCode != 0) {
             throw new RuntimeException("FFmpeg encoding failed for " + height + "p");
         }
+
+        log.info("{}p encoding completed successfully", height);
     }
 
     private void generateMasterPlaylist(String masterPlaylistPath) throws Exception {

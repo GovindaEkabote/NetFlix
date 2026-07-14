@@ -25,14 +25,20 @@ public class VideoEventConsumer {
 
     @KafkaListener(
             topics = "video.uploaded",
-            groupId = "encoding-service-group"
+            groupId = "encoding-service-group-v2"
     )
     public void consumeVideoUploadedEvent(VideoUploadedEvent event) {
-        log.info("Consuming video uploaded event");
+        log.info("========== EVENT RECEIVED ==========");
+        System.out.println("========== EVENT RECEIVED ==========");
+        System.out.println("MovieId      = " + event.getMovieId());
+        System.out.println("VideoKey     = " + event.getVideoKey());
+        System.out.println("Bucket       = " + event.getBucketName());
+        System.out.println("OriginalName = " + event.getOriginalFileName());
         try{
             encodingService.encodeVideo(event);
         }catch (Exception e){
             log.error("Failed to encode video", e);
+            System.out.println("Failed to encode video");
             throw new RuntimeException("Failed to encode video", e);
         }
     }
