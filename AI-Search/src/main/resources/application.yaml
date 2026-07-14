@@ -5,6 +5,12 @@ spring:
   application:
     name: ai_search_service
 
+  datasource:
+    url: jdbc:mysql://localhost:3306/movie_scenes
+    username: root
+    password: Govinda@1997
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
   ai:
 
     ollama:

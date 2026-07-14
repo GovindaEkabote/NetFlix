@@ -2,6 +2,7 @@ package ai_search_service.model;
 
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -20,33 +21,46 @@ public class MovieScene {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-    // Movie ID from your movie-service
+
     @Column(nullable = false)
     private String movieId;
 
-    // Movie title
+    @Size(max = 200)
     private String movieTitle;
 
-    // Scene text extracted from the video
     @Lob
     @Column(nullable = false)
     private String sceneText;
 
-    // Scene start time (seconds)
-    private Integer startTime;
+    @Column(nullable = false)
+    private Double startTime;
 
-    // Scene end time (seconds)
-    private Integer endTime;
+    @Column(nullable = false)
+    private Double endTime;
 
-    // Subtitle index or scene number
     private Integer sceneNumber;
 
-    // Language
-    private String language;
+    @Size(max = 10)
+    private String language = "en";
 
-    @CreationTimestamp
+    @Column(name = "subtitle_object_key")
+    private String subtitleObjectKey;
+
+    @Column(name = "created_at")
     private LocalDateTime createdAt;
-    @UpdateTimestamp
+
+    @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+
+    @PrePersist
+    protected void onCreate() {
+        createdAt = LocalDateTime.now();
+        updatedAt = LocalDateTime.now();
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        updatedAt = LocalDateTime.now();
+    }
 
 }
