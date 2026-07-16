@@ -21,6 +21,9 @@ spring:
             value:
               default:
                 type: com.netflix.event.VideoUploadedEvent
+        max.poll.interval.ms: 3600000
+        session.timeout.ms: 60000
+        heartbeat.interval.ms: 20000
 
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
@@ -34,6 +37,13 @@ minio:
 
 ffmpeg:
   path: ${FFMPEG_PATH:D:/ffmpeg-8.1.2-essentials_build/ffmpeg-8.1.2-essentials_build/bin/ffmpeg.exe}
+
+python:
+  path: py
+
+whisper:
+  model: base
+  language: en
 
 encoding:
   base-path: ${ENCODING_BASE_PATH:D:/temp2/encoding}

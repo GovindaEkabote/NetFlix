@@ -30,4 +30,5 @@ public class SceneSearchResponse {
 
     private String language;
     private Double score;
+
 }

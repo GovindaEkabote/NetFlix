@@ -13,10 +13,14 @@ import org.hibernate.annotations.UpdateTimestamp;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "movie_scenes")
+@Table(name = "movie_scenes",
+        indexes = {
+                @Index(name = "idx_movie_id", columnList = "movieId"),
+                @Index(name = "idx_movie_start_time", columnList = "movieId, startTime")
+        })
 @Data
-@AllArgsConstructor
 @NoArgsConstructor
+@AllArgsConstructor
 @Builder
 public class MovieScene {
 
@@ -24,45 +28,38 @@ public class MovieScene {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
+    @Column(nullable = false, length = 100)
     private String movieId;
 
-    @Size(max = 200)
-    private String movieTitle;
-
-    @Lob
-    @Column(nullable = false)
+    @Column(nullable = false, length = 1000)
     private String sceneText;
 
     @Column(nullable = false)
-    private Double startTime;
+    private Double startTime; // in seconds
 
     @Column(nullable = false)
-    private Double endTime;
+    private Double endTime; // in seconds
 
-    private Integer sceneNumber;
+    @Column(length = 10)
+    private String language;
 
-    @Size(max = 10)
-    private String language = "en";
+    @Column
+    private Double confidenceScore;
 
-    @Column(name = "subtitle_object_key")
-    private String subtitleObjectKey;
+    @Column(name = "qdrant_point_id", length = 100)
+    private String qdrantPointId;
 
-    @Column(name = "created_at")
+    @Column
+    private Integer sequenceNumber;
+
+    @Column
+    private String movieTitle;
+
+    @CreationTimestamp
+    @Column(updatable = false)
     private LocalDateTime createdAt;
 
-    @Column(name = "updated_at")
+    @UpdateTimestamp
     private LocalDateTime updatedAt;
-
-    @PrePersist
-    protected void onCreate() {
-        createdAt = LocalDateTime.now();
-        updatedAt = LocalDateTime.now();
-    }
-
-    @PreUpdate
-    protected void onUpdate() {
-        updatedAt = LocalDateTime.now();
-    }
 
 }

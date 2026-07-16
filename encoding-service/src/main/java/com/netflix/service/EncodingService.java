@@ -21,13 +21,16 @@ import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
+import java.util.UUID;
 
 @Service
 @Slf4j
 @RequiredArgsConstructor
 public class EncodingService {
 
-    private final MinioClient minioClient;
+    private final MinioService minioService;
+    private final WhisperService whisperService;
+
     private final KafkaTemplate<String, VideoEncodedEvent> kafkaTemplate;
 
     @Value("${minio.bucket}")
@@ -52,83 +55,86 @@ public class EncodingService {
         log.info("========== ENCODING STARTED ==========");
         log.info("Movie ID: {}", videoUploadedEvent.getMovieId());
 
-        String jobPath = basePath + "/" + videoUploadedEvent.getMovieId();
+        String jobPath = Paths.get(basePath, videoUploadedEvent.getMovieId()).toString();
+        String encodedPath = Paths.get(jobPath, "encoded").toString();
 
         try {
             // Create temp directory
             Files.createDirectories(Paths.get(jobPath));
-            Files.createDirectories(Paths.get(jobPath + "/encoded"));
+            Files.createDirectories(Paths.get(encodedPath));
 
             // Download video from MinIO
-            String localVideoPath = jobPath + "/raw_video.mp4";
+            String localVideoPath = Paths.get(jobPath, UUID.randomUUID() + ".mp4").toString();
             log.info("Downloading from MinIO...");
             log.info("Bucket     : {}", bucketName);
             log.info("Object Key : {}", videoUploadedEvent.getVideoKey());
             log.info("Local Path : {}", localVideoPath);
-            downloadFromMinIO(videoUploadedEvent.getVideoKey(), localVideoPath);
-            File file = new File(localVideoPath);
 
+            minioService.download(videoUploadedEvent.getVideoKey(), localVideoPath);
+
+            File file = new File(localVideoPath);
             log.info("Downloaded Exists : {}", file.exists());
             log.info("Downloaded Size   : {}", file.length());
 
             // Encode multiple qualities with HLS
             for (VideoQuality quality : VIDEO_QUALITIES) {
-                String qualityDir = jobPath + "/encoded/" + quality.getHeight() + "p";
+                String qualityDir = Paths.get(encodedPath, quality.getHeight() + "p").toString();
                 Files.createDirectories(Paths.get(qualityDir));
 
-                encodeToHLS(localVideoPath, qualityDir, quality.getWidth(), quality.getHeight(), quality.getBitrate());
+                encodeToHLS(localVideoPath, qualityDir, quality.getWidth(),
+                        quality.getHeight(), quality.getBitrate());
                 log.info("Encoded {}p successfully", quality.getHeight());
             }
 
-            // Generate master playlist (outside the loop)
-            String masterPlaylistPath = jobPath + "/encoded/master.m3u8";
+            // Generate master playlist
+            String masterPlaylistPath = Paths.get(encodedPath, "master.m3u8").toString();
             generateMasterPlaylist(masterPlaylistPath);
             log.info("Generated master playlist successfully");
 
-            // Upload all resources to MinIO
+            // Extract audio
+            File audio = extractAudio(localVideoPath, jobPath);
+
+            // Generate subtitles
+            File subtitle = whisperService.generateSubtitles(audio, jobPath);
+
+            // Upload to MinIO
             String encodedPrefix = "encoded/" + videoUploadedEvent.getMovieId() + "/";
-            uploadEncodedFilesToMinIO(jobPath + "/encoded", encodedPrefix);
+            uploadEncodedFilesToMinIO(encodedPath, encodedPrefix);
+
+            String subtitleKey = "subtitle/" + videoUploadedEvent.getMovieId() + "/subtitle.srt";
+            minioService.upload(subtitleKey, subtitle);
+
+            String audioKey = "audio/" + videoUploadedEvent.getMovieId() + "/audio.wav";
+            minioService.upload(audioKey, audio);
+
             log.info("All files uploaded to MinIO");
 
             // Publish VideoEncodedEvent
             String masterPlaylistKey = encodedPrefix + "master.m3u8";
-            String hlsUrl = "https://" + bucketName + ".minio.com/" + masterPlaylistKey;
+            String hlsUrl = "http://localhost:9000/" + bucketName + "/" + masterPlaylistKey;
 
             VideoEncodedEvent videoEncodedEvent = new VideoEncodedEvent(
                     videoUploadedEvent.getMovieId(),
+                    videoUploadedEvent.getMovieTitle(),
                     hlsUrl,
                     masterPlaylistKey,
                     true,
-                    null
+                    null,
+                    subtitleKey,
+                    audioKey,
+                    "COMPLETED"
             );
 
             kafkaTemplate.send(VIDEO_ENCODED_TOPIC, videoUploadedEvent.getMovieId(), videoEncodedEvent);
-            log.info("=================================");
             log.info("VIDEO ENCODED EVENT SENT");
-            log.info("Topic     : {}", VIDEO_ENCODED_TOPIC);
-            log.info("Movie Id  : {}", videoUploadedEvent.getMovieId());
             log.info("HLS URL   : {}", hlsUrl);
-            log.info("=================================");
 
         } catch (Exception e) {
             log.error("Encoding failed for movie: {}", videoUploadedEvent.getMovieId(), e);
             throw new RuntimeException("Encoding failed", e);
         } finally {
-            cleanupTempFiles(jobPath);
+            // cleanupTempFiles(jobPath);
         }
-    }
-
-    private void downloadFromMinIO(String objectName, String localPath) throws Exception {
-
-        minioClient.downloadObject(
-                DownloadObjectArgs.builder()
-                        .bucket(bucketName)
-                        .object(objectName)
-                        .filename(localPath)
-                        .build()
-        );
-
-        log.info("Downloaded {} to {}", objectName, localPath);
     }
 
     private void encodeToHLS(String inputPath,
@@ -225,13 +231,7 @@ public class EncodingService {
                                         .toString()
                                         .replace("\\", "/");
 
-                        minioClient.uploadObject(
-                                UploadObjectArgs.builder()
-                                        .bucket(bucketName)
-                                        .object(objectName)
-                                        .filename(path.toString())
-                                        .build()
-                        );
+                        minioService.upload(objectName,path.toFile());
 
                         log.info("Uploaded {}", objectName);
                     } catch (Exception e) {
@@ -277,5 +277,49 @@ public class EncodingService {
         public int getWidth() { return width; }
         public int getHeight() { return height; }
         public int getBitrate() { return bitrate; }
+    }
+    private File extractAudio(String input, String workDir) throws Exception {
+        String audio = workDir + "/audio.wav";
+
+        List<String> command = List.of(
+                ffmpegPath,
+                "-i", input,
+                "-vn",
+                "-acodec", "pcm_s16le",
+                "-ar", "16000",
+                "-ac", "1",
+                audio
+        );
+
+        log.info("Extracting audio: {}", String.join(" ", command));
+
+        Process process = new ProcessBuilder(command)
+                .redirectErrorStream(true)
+                .start();
+
+        try (BufferedReader reader = new BufferedReader(
+                new InputStreamReader(process.getInputStream()))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                log.info("[FFMPEG-AUDIO] {}", line);
+            }
+        }
+
+        int exitCode = process.waitFor();
+        log.info("Audio extraction exit code: {}", exitCode);
+
+        if (exitCode != 0) {
+            throw new RuntimeException("Audio extraction failed with exit code: " + exitCode);
+        }
+
+        File audioFile = new File(audio);
+        if (!audioFile.exists() || audioFile.length() == 0) {
+            throw new RuntimeException("Audio file not created or empty: " + audio);
+        }
+
+        log.info("Audio extracted successfully: {} ({} bytes)",
+                audioFile.getAbsolutePath(), audioFile.length());
+
+        return audioFile;
     }
 }

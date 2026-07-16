@@ -11,8 +11,12 @@ import lombok.NoArgsConstructor;
 public class VideoUploadedEvent {
 
     private String movieId;
+    private String movieTitle;
     private String videoKey;
     private String bucketName;
     private String originalFileName;
     private Long fileSizeBytes;
+
+
+
 }

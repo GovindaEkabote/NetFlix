@@ -11,15 +11,16 @@ spring:
     password: Govinda@1997
     driver-class-name: com.mysql.cj.jdbc.Driver
 
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+
   ai:
-
     ollama:
-
       base-url: http://localhost:11434
-
       embedding:
         model: nomic-embed-text
-
       chat:
         model: llama3.2
 
@@ -32,3 +33,16 @@ spring:
 
   kafka:
     bootstrap-servers: localhost:9092
+    consumer:
+      group-id: ai_search_service
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "*"
+
+minio:
+  endpoint: http://localhost:9000
+  access-key: admin
+  secret-key: password123
+  bucket: netflix-videos
