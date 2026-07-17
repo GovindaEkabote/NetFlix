@@ -3,7 +3,17 @@
   <component name="CompilerConfiguration">
     <annotationProcessing>
       <profile default="true" name="Default" enabled="true" />
-      <profile name="Annotation profile for video-service" enabled="true">
+      <profile name="Annotation profile for ai-search-service" enabled="true">
+        <sourceOutputDir name="target/generated-sources/annotations" />
+        <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
+        <outputRelativeToContentRoot value="true" />
+        <processorPath useClasspath="false">
+          <entry name="$MAVEN_REPOSITORY$/org/projectlombok/lombok/1.18.38/lombok-1.18.38.jar" />
+          <entry name="$MAVEN_REPOSITORY$/org/projectlombok/lombok/1.18.38/lombok-1.18.38.jar" />
+        </processorPath>
+        <module name="AI-Search" />
+      </profile>
+      <profile name="Annotation profile for user-service" enabled="true">
         <sourceOutputDir name="target/generated-sources/annotations" />
         <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
         <outputRelativeToContentRoot value="true" />
@@ -11,18 +21,10 @@
           <entry name="$MAVEN_REPOSITORY$/org/projectlombok/lombok/1.18.46/lombok-1.18.46.jar" />
         </processorPath>
         <module name="encoding-service" />
+        <module name="user-service" />
         <module name="video-service" />
         <module name="content-service" />
         <module name="stream-service" />
-      </profile>
-      <profile name="Annotation profile for ai-search-service" enabled="true">
-        <sourceOutputDir name="target/generated-sources/annotations" />
-        <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
-        <outputRelativeToContentRoot value="true" />
-        <processorPath useClasspath="false">
-          <entry name="$MAVEN_REPOSITORY$/org/projectlombok/lombok/1.18.38/lombok-1.18.38.jar" />
-        </processorPath>
-        <module name="AI-Search" />
       </profile>
     </annotationProcessing>
   </component>
@@ -32,6 +34,7 @@
       <module name="content-service" options="-parameters" />
       <module name="encoding-service" options="-parameters" />
       <module name="stream-service" options="-parameters" />
+      <module name="user-service" options="-parameters" />
       <module name="video-service" options="-parameters" />
     </option>
   </component>
