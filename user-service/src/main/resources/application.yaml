@@ -1,3 +1,48 @@
 spring:
   application:
     name: user-service
+
+  datasource:
+    url: jdbc:mysql://localhost:3306/user_service
+    username: root
+    password: Govinda@1997
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQL8Dialect
+        format_sql: true
+    show-sql: false
+
+  security:
+    jwt:
+      secret: ${JWT_SECRET:404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
+      expiration: ${JWT_EXPIRATION:86400000} # 24 hours in milliseconds
+      refresh-expiration: ${JWT_REFRESH_EXPIRATION:604800000} # 7 days
+
+  server:
+    port: 8086
+    servlet:
+      context-path: /api/v1
+
+  logging:
+    level:
+      com.netflix.user: DEBUG
+      org.springframework.security: DEBUG
+      org.hibernate.SQL: DEBUG
+      org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+
+  management:
+    endpoints:
+      web:
+        exposure:
+          include: health,info,metrics,prometheus
+    health:
+      db:
+        enabled: true
+
+
+
