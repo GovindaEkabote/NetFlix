@@ -6,29 +6,36 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
+
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class SceneSearchResponse {
 
-    private Long sceneId;
+    private List<SceneMatch> matches;
+    private String query;
+    private long processingTimeMs;
+    private int totalMatches;
 
-    private String movieId;
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class SceneMatch{
+        private String movieId;
+        private String movieTitle;
+        private String sceneText;
+        private Double startTime;
+        private Double endTime;
+        private Double score;
+        private String formattedTimestamp;
+        private String formattedEndTimestamp;
+        private Integer sequenceNumber;
 
-    private String movieTitle;
-
-    private String sceneText;
-
-    private Double startTime;
-
-    private Double endTime;
-
-    private Integer sceneNumber;
-
-    private Double similarityScore;
-
-    private String language;
-    private Double score;
+        // Helper to get duration in seconds
+        Double duration;
+    }
 
 }

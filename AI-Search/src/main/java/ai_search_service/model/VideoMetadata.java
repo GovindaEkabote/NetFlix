@@ -23,7 +23,7 @@ public class VideoMetadata {
     @Column(length = 100)
     private String movieId;
 
-    @Column(nullable = false, length = 255)
+    @Column(length = 255)
     private String movieTitle;
 
     @Column(length = 500)

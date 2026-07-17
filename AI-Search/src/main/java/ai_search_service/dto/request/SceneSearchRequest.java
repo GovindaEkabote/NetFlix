@@ -10,9 +10,6 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 @Data
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
 public class SceneSearchRequest {
     @NotBlank(message = "Query cannot be empty")
     private String query;
@@ -20,7 +17,8 @@ public class SceneSearchRequest {
     @NotBlank(message = "Movie ID is required")
     private String movieId;
 
-    @Min(1)
-    @Max(50)
-    private Integer topK = 5;
+    @Min(value = 1, message = "Limit must be at least 1")
+    private Integer limit = 10;
+
+    private Double confidenceThreshold = 0.5;
 }

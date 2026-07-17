@@ -12,29 +12,42 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/v1/scenes")
+@RequestMapping("/api/v1/search")
 @RequiredArgsConstructor
 @Slf4j
+@CrossOrigin(origins = "*")
 public class SceneSearchController {
 
     private final SceneSearchService sceneSearchService;
 
-    @PostMapping("/search")
-    public ResponseEntity<List<SceneSearchResponse>> searchScenes(
+    @PostMapping("/scenes")
+    public ResponseEntity<SceneSearchResponse> searchScenes(
             @Valid @RequestBody SceneSearchRequest request) {
 
-        log.info(
-                "Searching scenes | movieId={} | query={} | topK={}",
-                request.getMovieId(),
-                request.getQuery(),
-                request.getTopK()
-        );
+        log.info("========== SEARCH API CALLED ==========");
+        log.info("Request: query='{}', movieId='{}', limit={}, threshold={}",
+                request.getQuery(), request.getMovieId(), request.getLimit(), request.getConfidenceThreshold());
 
-        List<SceneSearchResponse> results =
-                sceneSearchService.searchScenes(request);
+        long startTime = System.currentTimeMillis();
 
-        log.info("Found {} matching scenes.", results.size());
+        List<SceneSearchResponse.SceneMatch> matches =
+                sceneSearchService.searchScenes(
+                        request.getQuery(),
+                        request.getMovieId(),
+                        request.getLimit(),
+                        request.getConfidenceThreshold());
 
-        return ResponseEntity.ok(results);
+        long processingTime = System.currentTimeMillis() - startTime;
+
+        log.info("Search completed in {}ms, found {} matches", processingTime, matches.size());
+
+        SceneSearchResponse response = SceneSearchResponse.builder()
+                .matches(matches)
+                .query(request.getQuery())
+                .processingTimeMs(processingTime)
+                .totalMatches(matches.size())
+                .build();
+
+        return ResponseEntity.ok(response);
     }
 }

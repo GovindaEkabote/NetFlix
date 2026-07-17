@@ -2,24 +2,21 @@ package com.netflix.service;
 
 import com.netflix.event.VideoEncodedEvent;
 import com.netflix.event.VideoUploadedEvent;
-import io.minio.DownloadObjectArgs;
-import io.minio.MinioClient;
-import io.minio.UploadObjectArgs;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
+
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.InputStreamReader;
-
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.LocalDateTime;
 import java.util.Arrays;
-import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 
@@ -30,7 +27,6 @@ public class EncodingService {
 
     private final MinioService minioService;
     private final WhisperService whisperService;
-
     private final KafkaTemplate<String, VideoEncodedEvent> kafkaTemplate;
 
     @Value("${minio.bucket}")
@@ -58,58 +54,63 @@ public class EncodingService {
         String jobPath = Paths.get(basePath, videoUploadedEvent.getMovieId()).toString();
         String encodedPath = Paths.get(jobPath, "encoded").toString();
 
+        File subtitle = null;
+        File audio = null;
+        String localVideoPath = null;
+
         try {
             // Create temp directory
             Files.createDirectories(Paths.get(jobPath));
             Files.createDirectories(Paths.get(encodedPath));
 
-            // Download video from MinIO
-            String localVideoPath = Paths.get(jobPath, UUID.randomUUID() + ".mp4").toString();
+            // Step 1: Download video from MinIO
+            localVideoPath = Paths.get(jobPath, UUID.randomUUID() + ".mp4").toString();
             log.info("Downloading from MinIO...");
-            log.info("Bucket     : {}", bucketName);
-            log.info("Object Key : {}", videoUploadedEvent.getVideoKey());
-            log.info("Local Path : {}", localVideoPath);
+            log.info("Bucket: {}, Object Key: {}", bucketName, videoUploadedEvent.getVideoKey());
 
             minioService.download(videoUploadedEvent.getVideoKey(), localVideoPath);
 
             File file = new File(localVideoPath);
-            log.info("Downloaded Exists : {}", file.exists());
-            log.info("Downloaded Size   : {}", file.length());
+            log.info("Downloaded: {} ({} bytes)", file.exists(), file.length());
 
-            // Encode multiple qualities with HLS
+            // Step 2: Encode multiple qualities with HLS
             for (VideoQuality quality : VIDEO_QUALITIES) {
                 String qualityDir = Paths.get(encodedPath, quality.getHeight() + "p").toString();
                 Files.createDirectories(Paths.get(qualityDir));
-
                 encodeToHLS(localVideoPath, qualityDir, quality.getWidth(),
                         quality.getHeight(), quality.getBitrate());
                 log.info("Encoded {}p successfully", quality.getHeight());
             }
 
-            // Generate master playlist
+            // Step 3: Generate master playlist
             String masterPlaylistPath = Paths.get(encodedPath, "master.m3u8").toString();
             generateMasterPlaylist(masterPlaylistPath);
             log.info("Generated master playlist successfully");
 
-            // Extract audio
-            File audio = extractAudio(localVideoPath, jobPath);
+            // Step 4: Extract audio
+            audio = extractAudio(localVideoPath, jobPath);
+            log.info("Audio extracted: {}", audio.getAbsolutePath());
 
-            // Generate subtitles
-            File subtitle = whisperService.generateSubtitles(audio, jobPath);
+            // Step 5: Generate subtitles using Whisper
+            subtitle = whisperService.generateSubtitles(audio, jobPath);
+            log.info("Subtitles generated: {}", subtitle.getAbsolutePath());
 
-            // Upload to MinIO
+            // Step 6: Upload to MinIO
             String encodedPrefix = "encoded/" + videoUploadedEvent.getMovieId() + "/";
             uploadEncodedFilesToMinIO(encodedPath, encodedPrefix);
 
             String subtitleKey = "subtitle/" + videoUploadedEvent.getMovieId() + "/subtitle.srt";
             minioService.upload(subtitleKey, subtitle);
+            log.info("Uploaded subtitle to: {}", subtitleKey);
 
             String audioKey = "audio/" + videoUploadedEvent.getMovieId() + "/audio.wav";
             minioService.upload(audioKey, audio);
+            log.info("Uploaded audio to: {}", audioKey);
 
-            log.info("All files uploaded to MinIO");
+            // Step 7: Get video duration
+            Double duration = getVideoDuration(localVideoPath);
 
-            // Publish VideoEncodedEvent
+            // Step 8: Publish VideoEncodedEvent
             String masterPlaylistKey = encodedPrefix + "master.m3u8";
             String hlsUrl = "http://localhost:9000/" + bucketName + "/" + masterPlaylistKey;
 
@@ -122,27 +123,41 @@ public class EncodingService {
                     null,
                     subtitleKey,
                     audioKey,
-                    "COMPLETED"
+                    "COMPLETED",
+                    duration
             );
 
             kafkaTemplate.send(VIDEO_ENCODED_TOPIC, videoUploadedEvent.getMovieId(), videoEncodedEvent);
-            log.info("VIDEO ENCODED EVENT SENT");
-            log.info("HLS URL   : {}", hlsUrl);
+            log.info("VIDEO ENCODED EVENT SENT to topic: {}", VIDEO_ENCODED_TOPIC);
+            log.info("HLS URL: {}", hlsUrl);
+            log.info("Subtitle Key: {}", subtitleKey);
 
         } catch (Exception e) {
             log.error("Encoding failed for movie: {}", videoUploadedEvent.getMovieId(), e);
+
+            // Send failure event
+            VideoEncodedEvent failureEvent = new VideoEncodedEvent(
+                    videoUploadedEvent.getMovieId(),
+                    videoUploadedEvent.getMovieTitle(),
+                    null,
+                    null,
+                    false,
+                    e.getMessage(),
+                    null,
+                    null,
+                    "FAILED",
+                    null
+            );
+            kafkaTemplate.send(VIDEO_ENCODED_TOPIC, videoUploadedEvent.getMovieId(), failureEvent);
+
             throw new RuntimeException("Encoding failed", e);
         } finally {
-            // cleanupTempFiles(jobPath);
+            // Cleanup temp files
+            cleanupTempFiles(jobPath);
         }
     }
 
-    private void encodeToHLS(String inputPath,
-                             String outputDir,
-                             int width,
-                             int height,
-                             int bitrate) throws Exception {
-
+    private void encodeToHLS(String inputPath, String outputDir, int width, int height, int bitrate) throws Exception {
         String playlist = outputDir + "/playlist.m3u8";
         String segments = outputDir + "/segment_%03d.ts";
 
@@ -166,22 +181,12 @@ public class EncodingService {
                 playlist
         );
 
-        log.info("======================================");
         log.info("Starting {}p encoding", height);
-        log.info("FFmpeg Path: {}", ffmpegPath);
-        log.info("Input File : {}", inputPath);
-        log.info("Output Dir : {}", outputDir);
-        log.info("Command    : {}", String.join(" ", command));
-        log.info("======================================");
-
         ProcessBuilder builder = new ProcessBuilder(command);
         builder.redirectErrorStream(true);
-
         Process process = builder.start();
 
-        try (BufferedReader reader =
-                     new BufferedReader(new InputStreamReader(process.getInputStream()))) {
-
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
             String line;
             while ((line = reader.readLine()) != null) {
                 log.info("[FFMPEG] {}", line);
@@ -189,13 +194,11 @@ public class EncodingService {
         }
 
         int exitCode = process.waitFor();
-
         log.info("FFmpeg Exit Code = {}", exitCode);
 
         if (exitCode != 0) {
             throw new RuntimeException("FFmpeg encoding failed for " + height + "p");
         }
-
         log.info("{}p encoding completed successfully", height);
     }
 
@@ -230,9 +233,7 @@ public class EncodingService {
                                         .relativize(path)
                                         .toString()
                                         .replace("\\", "/");
-
-                        minioService.upload(objectName,path.toFile());
-
+                        minioService.upload(objectName, path.toFile());
                         log.info("Uploaded {}", objectName);
                     } catch (Exception e) {
                         throw new RuntimeException("Failed to upload: " + path, e);
@@ -240,44 +241,6 @@ public class EncodingService {
                 });
     }
 
-    private void cleanupTempFiles(String jobPath) {
-        Path path = Paths.get(jobPath);
-
-        if (!Files.exists(path)) {
-            return;
-        }
-
-        try {
-            Files.walk(path)
-                    .sorted(Comparator.reverseOrder())
-                    .forEach(p -> {
-                        try {
-                            Files.deleteIfExists(p);
-                        } catch (IOException e) {
-                            log.error("Unable to delete {}", p);
-                        }
-                    });
-        } catch (IOException e) {
-            log.error("Cleanup failed", e);
-        }
-    }
-
-    // Inner class for type-safe quality definitions
-    private static class VideoQuality {
-        private final int width;
-        private final int height;
-        private final int bitrate;
-
-        public VideoQuality(int width, int height, int bitrate) {
-            this.width = width;
-            this.height = height;
-            this.bitrate = bitrate;
-        }
-
-        public int getWidth() { return width; }
-        public int getHeight() { return height; }
-        public int getBitrate() { return bitrate; }
-    }
     private File extractAudio(String input, String workDir) throws Exception {
         String audio = workDir + "/audio.wav";
 
@@ -297,8 +260,7 @@ public class EncodingService {
                 .redirectErrorStream(true)
                 .start();
 
-        try (BufferedReader reader = new BufferedReader(
-                new InputStreamReader(process.getInputStream()))) {
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
             String line;
             while ((line = reader.readLine()) != null) {
                 log.info("[FFMPEG-AUDIO] {}", line);
@@ -321,5 +283,74 @@ public class EncodingService {
                 audioFile.getAbsolutePath(), audioFile.length());
 
         return audioFile;
+    }
+
+    private Double getVideoDuration(String videoPath) {
+        try {
+            List<String> command = List.of(
+                    ffmpegPath,
+                    "-i", videoPath,
+                    "-f", "null",
+                    "-"
+            );
+
+            Process process = new ProcessBuilder(command)
+                    .redirectErrorStream(true)
+                    .start();
+
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    if (line.contains("Duration:")) {
+                        String[] parts = line.split("Duration:")[1].trim().split(",");
+                        String timeStr = parts[0].trim();
+                        String[] timeParts = timeStr.split(":");
+                        double hours = Double.parseDouble(timeParts[0]);
+                        double minutes = Double.parseDouble(timeParts[1]);
+                        double seconds = Double.parseDouble(timeParts[2]);
+                        return hours * 3600 + minutes * 60 + seconds;
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Failed to get video duration", e);
+        }
+        return 0.0;
+    }
+
+    private void cleanupTempFiles(String jobPath) {
+        try {
+            Path path = Paths.get(jobPath);
+            if (Files.exists(path)) {
+                Files.walk(path)
+                        .sorted((a, b) -> b.compareTo(a))
+                        .forEach(p -> {
+                            try {
+                                Files.deleteIfExists(p);
+                            } catch (IOException e) {
+                                log.error("Unable to delete {}", p);
+                            }
+                        });
+                log.info("Cleaned up temp directory: {}", jobPath);
+            }
+        } catch (IOException e) {
+            log.error("Cleanup failed", e);
+        }
+    }
+
+    private static class VideoQuality {
+        private final int width;
+        private final int height;
+        private final int bitrate;
+
+        public VideoQuality(int width, int height, int bitrate) {
+            this.width = width;
+            this.height = height;
+            this.bitrate = bitrate;
+        }
+
+        public int getWidth() { return width; }
+        public int getHeight() { return height; }
+        public int getBitrate() { return bitrate; }
     }
 }
