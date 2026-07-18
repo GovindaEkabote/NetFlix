@@ -11,7 +11,7 @@ import com.user.model.User;
 import com.user.repository.RefreshTokenRepository;
 import com.user.repository.UserRepository;
 import com.user.service.AuthService;
-import com.user.service.JwtService;
+import com.user.security.jwt.JwtService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -52,6 +52,7 @@ public class AuthServiceImpl implements AuthService {
                 .phoneNumber(request.getPhoneNumber())
                 .name(request.getName())
                 .password(passwordEncoder.encode(request.getPassword()))
+                .createdAt(LocalDateTime.now())
                 .build();
         user = userRepository.save(user);
         log.info("User registered successfully: {}", user);

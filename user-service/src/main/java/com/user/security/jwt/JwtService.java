@@ -1,6 +1,5 @@
-package com.user.service;
+package com.user.security.jwt;
 
-import com.user.model.User;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
