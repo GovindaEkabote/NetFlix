@@ -130,7 +130,7 @@ public class AuthServiceImpl implements AuthService {
         RefreshToken token = refreshTokenRepository.findByToken(refreshToken)
                 .orElse(null);
 
-        if(token == null) {
+        if(token != null) {
             refreshTokenRepository.delete(token);
             log.info("Refresh token deleted for user: {}", token.getUser().getEmail());
         }
