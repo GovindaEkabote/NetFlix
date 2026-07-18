@@ -28,6 +28,21 @@
         <module name="content-service" />
         <module name="stream-service" />
       </profile>
+      <profile name="Maven default annotation processors profile" enabled="true">
+        <sourceOutputDir name="target/generated-sources/annotations" />
+        <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
+        <outputRelativeToContentRoot value="true" />
+      </profile>
+      <profile name="Annotation profile for Watch-Service" enabled="true">
+        <sourceOutputDir name="target/generated-sources/annotations" />
+        <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
+        <outputRelativeToContentRoot value="true" />
+        <processorPath useClasspath="false">
+          <entry name="$MAVEN_REPOSITORY$/org/projectlombok/lombok/1.18.38/lombok-1.18.38.jar" />
+          <entry name="$MAVEN_REPOSITORY$/org/mapstruct/mapstruct-processor/1.6.3/mapstruct-processor-1.6.3.jar" />
+        </processorPath>
+        <module name="Watch-Service" />
+      </profile>
     </annotationProcessing>
     <bytecodeTargetLevel>
       <module name="user-service.main" target="17" />
@@ -37,6 +52,7 @@
   <component name="JavacSettings">
     <option name="ADDITIONAL_OPTIONS_OVERRIDE">
       <module name="AI-Search" options="-parameters" />
+      <module name="Watch-Service" options="-parameters" />
       <module name="content-service" options="-parameters" />
       <module name="encoding-service" options="-parameters" />
       <module name="stream-service" options="-parameters" />
