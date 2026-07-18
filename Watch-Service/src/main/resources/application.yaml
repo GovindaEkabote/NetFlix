@@ -1,3 +1,79 @@
 spring:
   application:
     name: Watch-Service
+
+  datasource:
+    url: jdbc:mysql://localhost:3306/watch_service
+    username: root
+    password: Govinda@1997
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQL8Dialect
+        format_sql: true
+    show-sql: true
+
+  redis:
+    host: localhost
+    port: 6379
+    timeout: 6000ms
+    lettuce:
+      pool:
+        max-active: 10
+        max-idle: 5
+        min-idle: 2
+
+  kafka:
+    bootstrap-servers: localhost:9092
+
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+
+    consumer:
+      group-id: watch-service
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+
+      properties:
+        spring.json.trusted-packages: "*"
+        spring.json.type.mapping: "playback:com.netflix.watch.dto.event.PlaybackEventDTO,chat:com.netflix.watch.dto.event.ChatMessageDTO"
+
+security:
+  jwt:
+    secret: almsnflkdsfndlkfndgfnlsfdngflkngklfdngfdgodgnkdfgfdlgfdkgl
+    expiration: 86400000
+
+server:
+  port: 8087
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+  instance:
+    prefer-ip-address: true
+
+feign:
+  client:
+    config:
+      default:
+        connectTimeout: 5000
+        readTimeout: 5000
+        loggerLevel: basic
+
+logging:
+  level:
+    com.netflix.watch: DEBUG
+    org.springframework.web.socket: DEBUG
+    org.springframework.kafka: DEBUG
+
+room:
+  cleanup:
+    expiry-hours: 24
+    heartbeat-timeout-seconds: 60
+  max-members: 10
